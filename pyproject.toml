@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cex-dex-spread"
+version = "0.1.0"
+description = "Raw JSON-RPC and WebSocket spread tracker between CEX spot books and EVM pools"
+authors = [{ name = "Dmitry", email = "dmitry@local" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.25.0",
+    "websockets>=12.0",
+    "click>=8.1.0",
+    "rich>=13.5.0",
+]
+
+[project.scripts]
+cex-dex-spread = "cex_dex_spread.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
