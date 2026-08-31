@@ -46,3 +46,36 @@ def decode_v3_slot0(raw_hex: str) -> tuple[int, int]:
     return sqrt_price_x96, raw_tick
 
 
+def v3_sqrt_price_to_human(sqrt_price_x96: int, dec0: int, dec1: int) -> float:
+    # price = (sqrtPriceX96 / 2^96)^2 * 10^(dec0 - dec1)
+    ratio = sqrt_price_x96 / (1 << 96)
+    price_raw = ratio * ratio
+    return price_raw * (10 ** (dec0 - dec1))
+
+
+async def fetch_v2_pool(rpc_url: str, pool_address: str, dec0: int, dec1: int) -> DexPoolState:
+    raw = await rpc_eth_call(rpc_url, pool_address, SELECTOR_GET_RESERVES)
+    r0, r1, _ = decode_v2_reserves(raw)
+    h0 = r0 / (10 ** dec0)
+    h1 = r1 / (10 ** dec1)
+    price = h1 / h0 if h0 > 0 else 0.0
+    return DexPoolState(
+        pool_address=pool_address,
+        version="v2",
+        token0_reserve=r0,
+        token1_reserve=r1,
+        price_token1_per_token0=price,
+    )
+
+
+async def fetch_v3_pool(rpc_url: str, pool_address: str, dec0: int, dec1: int) -> DexPoolState:
+    raw = await rpc_eth_call(rpc_url, pool_address, SELECTOR_SLOT0)
+    sqrt_px, tick = decode_v3_slot0(raw)
+    price = v3_sqrt_price_to_human(sqrt_px, dec0, dec1)
+    return DexPoolState(
+        pool_address=pool_address,
+        version="v3",
+        sqrt_price_x96=sqrt_px,
+        tick=tick,
+        price_token1_per_token0=price,
+    )
