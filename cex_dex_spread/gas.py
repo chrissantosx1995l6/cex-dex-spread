@@ -25,3 +25,13 @@ async def fetch_base_fee_gwei(rpc_urls: list[str], timeout: float = 3.0) -> floa
     return 25.0
 
 
+def estimate_swap_gas_cost_usd(
+    version: str,
+    gas_price_gwei: float,
+    eth_usd_price: float,
+    priority_gwei: float = 1.5,
+) -> float:
+    units = GAS_UNITS_V3_SWAP if version == "v3" else GAS_UNITS_V2_SWAP
+    total_gwei = gas_price_gwei + priority_gwei
+    cost_eth = (units * total_gwei) / 1e9
+    return cost_eth * eth_usd_price
