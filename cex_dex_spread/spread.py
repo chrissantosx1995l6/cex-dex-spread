@@ -28,24 +28,27 @@ def compute_spread(
     if ticker.ask <= Decimal("0") or ticker.bid <= Decimal("0") or pool.price <= Decimal("0"):
         return None
 
-    # Pick relevant CEX leg
-    # If DEX price > CEX ask -> buy on CEX at ask, sell on DEX
-    # If DEX price < CEX bid -> buy on DEX, sell on CEX at bid
-    if pool.price > ticker.ask:
+    # Cross-reference best available execution prices
+    dex_p = pool.price
+    if dex_p >= ticker.ask:
         direction = TradeDirection.BUY_CEX_SELL_DEX
         cex_exec_price = ticker.ask
-        dex_exec_price = pool.price
-        gross_spread = ((dex_exec_price - cex_exec_price) / cex_exec_price) * Decimal("100")
+        dex_exec_price = dex_p
+        gross_diff = dex_exec_price - cex_exec_price
+        gross_spread = (gross_diff / cex_exec_price) * Decimal("100")
     else:
         direction = TradeDirection.BUY_DEX_SELL_CEX
         cex_exec_price = ticker.bid
-        dex_exec_price = pool.price
-        gross_spread = ((cex_exec_price - dex_exec_price) / dex_exec_price) * Decimal("100")
+        dex_exec_price = dex_p
+        gross_diff = cex_exec_price - dex_exec_price
+        gross_spread = (gross_diff / dex_exec_price) * Decimal("100")
 
-    # Fee deductions
+    # print(f"DEBUG: dir={direction} cex={cex_exec_price} dex={dex_exec_price}")
+
     cex_fee_usd = trade_size_usd * cex_fee_rate
     dex_fee_usd = trade_size_usd * pool.fee_rate
 
+    # V3 swap fee is deducted from input token before curve routing
     gross_profit_usd = (gross_spread / Decimal("100")) * trade_size_usd
     total_costs_usd = cex_fee_usd + dex_fee_usd + gas_cost_usd
     net_profit_usd = gross_profit_usd - total_costs_usd
