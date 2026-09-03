@@ -27,7 +27,10 @@ async def fetch_bybit_rest(symbol: str) -> TickerQuote:
         r = await client.get(url)
         r.raise_for_status()
         data = r.json()
-        item = data["result"]["list"][0]
+        res = data.get("result", {}).get("list", [])
+        if not res:
+            raise ValueError(f"no bybit ticker data for {symbol}")
+        item = res[0]
         return TickerQuote(
             venue="bybit",
             symbol=symbol.upper(),
@@ -40,12 +43,14 @@ async def fetch_bybit_rest(symbol: str) -> TickerQuote:
 
 async def stream_binance_book(symbol: str, queue: asyncio.Queue[TickerQuote], ws_url: str):
     stream_name = f"{symbol.lower()}@bookTicker"
-    url = f"{ws_url}/{stream_name}"
+    url = f"{ws_url.rstrip('/')}/{stream_name}"
     while True:
         try:
-            async with websockets.connect(url, ping_interval=20) as ws:
+            async with websockets.connect(url, ping_interval=20, close_timeout=5) as ws:
                 async for msg in ws:
                     data = json.loads(msg)
+                    if "b" not in data or "a" not in data:
+                        continue
                     quote = TickerQuote(
                         venue="binance",
                         symbol=symbol.upper(),
@@ -55,5 +60,39 @@ async def stream_binance_book(symbol: str, queue: asyncio.Queue[TickerQuote], ws
                         ask_size=float(data["A"]),
                     )
                     await queue.put(quote)
-        except (websockets.ConnectionClosed, OSError):
+        except (websockets.ConnectionClosed, OSError, asyncio.TimeoutError):
+            await asyncio.sleep(1.0)
+
+
+async def stream_bybit_book(symbol: str, queue: asyncio.Queue[TickerQuote], ws_url: str):
+    sub_msg = json.dumps({
+        "op": "subscribe",
+        "args": [f"orderbook.1.{symbol.upper()}"]
+    })
+    while True:
+        try:
+            async with websockets.connect(ws_url, ping_interval=20, close_timeout=5) as ws:
+                await ws.send(sub_msg)
+                async for msg in ws:
+                    data = json.loads(msg)
+                    if data.get("op") == "ping":
+                        await ws.send(json.dumps({"op": "pong"}))
+                        continue
+                    payload = data.get("data")
+                    if not payload:
+                        continue
+                    bids = payload.get("b", [])
+                    asks = payload.get("a", [])
+                    if not bids or not asks:
+                        continue
+                    quote = TickerQuote(
+                        venue="bybit",
+                        symbol=symbol.upper(),
+                        bid=float(bids[0][0]),
+                        ask=float(asks[0][0]),
+                        bid_size=float(bids[0][1]),
+                        ask_size=float(asks[0][1]),
+                    )
+                    await queue.put(quote)
+        except (websockets.ConnectionClosed, OSError, asyncio.TimeoutError):
             await asyncio.sleep(1.0)
