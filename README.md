@@ -48,3 +48,5 @@ cex-dex-spread \
 - `--trade-size`: Nominal size in USD used to calculate estimated slippage.
 - `--threshold`: Minimum net spread percentage to highlight in table (default: `0.20`).
 - `--poll-ms`: Polling interval for RPC contract calls in milliseconds (default: `800`).
+
+<!-- refreshed: 2026-09-08 -->
