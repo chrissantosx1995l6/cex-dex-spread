@@ -49,4 +49,4 @@ cex-dex-spread \
 - `--threshold`: Minimum net spread percentage to highlight in table (default: `0.20`).
 - `--poll-ms`: Polling interval for RPC contract calls in milliseconds (default: `800`).
 
-<!-- refreshed: 2026-09-10 -->
+<!-- refreshed: 2026-09-11 -->
